@@ -32,68 +32,263 @@ function bossIntro(){page(`<div class="hero">🏰</div><h2>THE KING'S KEEP</h2><
 
 /* ========================= FINAL BATTLE ========================= */
 let B=null;
+
 function boss(){
-  const bonus=Math.min(45,S.score*4); // reward for the trials: 100-140+ HP
-  B={running:true,player:{x:80,y:300,hp:100+bonus,maxHp:100+bonus,shield:0,inv:0,attackCd:0},king:{x:640,y:220,hp:260,maxHp:260,attackCd:1800,stagger:0},keys:{},last:performance.now(),lastKing:performance.now(),projectiles:[],particles:[],walls:[
-    {x:250,y:95,w:55,h:220},{x:420,y:310,w:55,h:150},{x:560,y:70,w:45,h:150},{x:105,y:420,w:170,h:42}
-  ],shake:0,hitFlash:0,closeLock:0};
-  page(`<p class="small">FINAL BATTLE · WOLFY VS THE MONSYETER KING</p><div class="battleHud"><div><b>🐺 WOLFY</b><div class="bar"><i id="php" style="width:100%"></i></div><span id="pht">${B.player.hp}/${B.player.maxHp} HP</span></div><div><b>👺 MONSYETER KING</b><div class="bar enemy"><i id="khp" style="width:100%"></i></div><span id="kht">260/260 HP</span></div></div><div id="arena" class="battleArena"><canvas id="battleCanvas"></canvas><div id="battleWarn" class="battleWarn">FIND HIM. USE THE WALLS.</div><div id="battleText" class="battleText">Move Wolfy around the castle. If the King can see you, he can throw his magical sword.</div><div id="death" class="deathOverlay"></div></div><div class="battleControls"><div class="dpad"><button data-dir="up">▲</button><div><button data-dir="left">◀</button><button data-dir="down">▼</button><button data-dir="right">▶</button></div></div><div class="combatBtns"><button class="combat attackBtn" id="attackBtn">⚔️ ATTACK</button><button class="combat shieldBtn" id="shieldBtn">🛡️ SHIELD</button></div></div><p class="hint">Desktop: WASD / arrows to move · Space or Attack to throw sword · hold Shift/Shield to block. On phone, use the movement pad + buttons.</p>`);
+  const bonus=Math.min(80,S.score*8);
+  B={running:true, last:performance.now(), lastKing:performance.now(), audio:null,
+    player:{x:58,y:60,hp:150+bonus,maxHp:150+bonus,dir:'right',cool:0,shield:false,inv:0},
+    king:{x:620,y:430,hp:180,maxHp:180,dir:'left',cool:2600,inv:0,flash:0,dead:false},
+    keys:{}, shots:[], particles:[], sparks:[], walls:[], shake:0, msgTimer:0, deathTimer:0, win:false
+  };
+  page(`<p class="small">THE FINAL TRIAL</p><h2>⚔️ WOLFY VS THE MONSYETER KING</h2><div class="battleHud"><div><b>🐺 WOLFY · KNIGHT</b><div class="bar"><i id="php"></i></div><span id="pht"></span></div><div><b>👺 MONSYETER KING</b><div class="bar enemy"><i id="khp"></i></div><span id="kht"></span></div></div><div id="arena" class="mazeArena"><canvas id="battleCanvas"></canvas><div class="bossWarning" id="bossWarning">THE KING HUNTS YOU...</div><div class="battleText" id="battleText">Move through the castle maze. Hide behind walls. Shoot when you have a clear line.</div><div class="deathOverlay" id="death"></div></div><div class="battleControls"><div class="dpad"><button data-dir="up">▲</button><div><button data-dir="left">◀</button><button data-dir="down">▼</button><button data-dir="right">▶</button></div></div><div class="combatBtns"><button class="combat attackBtn" id="attackBtn">✨ SHOOT</button><button class="combat shieldBtn" id="shieldBtn">🛡️ SHIELD</button></div></div><p class="hint">Like a tiny castle maze: move, hide, aim and shoot. Desktop: WASD / arrows · Space = shoot · hold Shift = shield.</p>`);
   startBattle();
 }
-function startBattle(){
-  const c=document.querySelector('#battleCanvas'),arena=document.querySelector('#arena');
-  B.canvas=c;B.ctx=c.getContext('2d');
-  resizeBattle(); window.addEventListener('resize',resizeBattle);
-  B.last=performance.now(); B.lastKing=performance.now();
-  bindBattleControls();
-  battleLoop(B.last);
-}
-function resizeBattle(){if(!B?.canvas)return;const r=document.querySelector('#arena').getBoundingClientRect();B.canvas.width=Math.floor(r.width*devicePixelRatio);B.canvas.height=Math.floor(r.height*devicePixelRatio);B.w=r.width;B.h=r.height;B.ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);}
-function bindBattleControls(){
-  const k=e=>{B.keys[e.key.toLowerCase()]=true;if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(e.key.toLowerCase()))e.preventDefault();if(e.code==='Space'){e.preventDefault();playerAttack()}};
-  const u=e=>{B.keys[e.key.toLowerCase()]=false};window.addEventListener('keydown',k);window.addEventListener('keyup',u);B.cleanup=()=>{window.removeEventListener('keydown',k);window.removeEventListener('keyup',u);window.removeEventListener('resize',resizeBattle)};
-  document.querySelectorAll('[data-dir]').forEach(btn=>{const d=btn.dataset.dir;const on=e=>{e.preventDefault();B.keys[d]=true};const off=e=>{e.preventDefault();B.keys[d]=false};btn.addEventListener('pointerdown',on);btn.addEventListener('pointerup',off);btn.addEventListener('pointercancel',off);btn.addEventListener('pointerleave',off)});
-  const ab=document.querySelector('#attackBtn');ab.addEventListener('pointerdown',e=>{e.preventDefault();playerAttack()});
-  const sb=document.querySelector('#shieldBtn');const on=e=>{e.preventDefault();B.keys.shield=true};const off=e=>{e.preventDefault();B.keys.shield=false};sb.addEventListener('pointerdown',on);sb.addEventListener('pointerup',off);sb.addEventListener('pointercancel',off);sb.addEventListener('pointerleave',off);
-}
-function blockedByWall(a,b){for(const w of B.walls){if(segmentRect(a.x,a.y,b.x,b.y,w))return true}return false}
-function segmentRect(x1,y1,x2,y2,r){for(let i=0;i<=24;i++){const t=i/24,x=x1+(x2-x1)*t,y=y1+(y2-y1)*t;if(x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h)return true}return false}
-function moveEntity(e,dx,dy){let nx=Math.max(22,Math.min(B.w-22,e.x+dx)),ny=Math.max(25,Math.min(B.h-45,e.y+dy));if(!circleWalls(nx,ny,17))e.x=nx;if(!circleWalls(e.x,ny,17))e.y=ny}
-function circleWalls(x,y,rad){return B.walls.some(w=>x+rad>w.x&&x-rad<w.x+w.w&&y+rad>w.y&&y-rad<w.y+w.h)}
-function playerAttack(){if(!B?.running||B.player.attackCd>0||B.player.hp<=0)return;B.player.attackCd=520;const p=B.player,k=B.king,visible=!blockedByWall(p,k);if(!visible){battleMsg('The wall blocks your magical sword. Get a clear line!');return}launchSword(p,k,'player');battleMsg('WOLFY THROWS THE MAGICAL SWORD! ⚔️');}
-function launchSword(from,to,owner){const dx=to.x-from.x,dy=to.y-from.y,len=Math.hypot(dx,dy)||1;B.projectiles.push({x:from.x,y:from.y,vx:dx/len*7,vy:dy/len*7,owner,life:0,max:75});}
-function kingAttack(){if(!B.running)return;const p=B.player,k=B.king;if(blockedByWall(k,p)){battleMsg('A castle wall saves Wolfy. The King cannot strike through it.');return}const d=Math.hypot(p.x-k.x,p.y-k.y);if(d<100){k.stagger=300;B.closeLock=250;B.projectiles.push({x:k.x,y:k.y,vx:(p.x-k.x)/(d||1)*9,vy:(p.y-k.y)/(d||1)*9,owner:'king',life:0,max:38,melee:true});battleMsg('CLOSE COMBAT! The King slashes hard! 🗡️');}else{launchSword(k,p,'king');battleMsg('INCOMING! THE KING THROWS HIS MAGICAL SWORD!');}B.lastKing=performance.now();}
-function updateBattle(dt,now){const p=B.player,k=B.king;let sp=2.65*(B.keys.shield?0.65:1);let dx=0,dy=0;if(B.keys.a||B.keys.arrowleft||B.keys.left)dx--;if(B.keys.d||B.keys.arrowright||B.keys.right)dx++;if(B.keys.w||B.keys.arrowup||B.keys.up)dy--;if(B.keys.s||B.keys.arrowdown||B.keys.down)dy++;if(dx||dy){const l=Math.hypot(dx,dy);moveEntity(p,dx/l*sp*dt/16.67,dy/l*sp*dt/16.67)}
-  if(B.keys.shield)p.shield=1;else p.shield=0;p.attackCd=Math.max(0,p.attackCd-dt);p.inv=Math.max(0,p.inv-dt);k.stagger=Math.max(0,k.stagger-dt);
-  // King keeps moving, but cannot walk through castle walls.
-  if(k.stagger<=0){const d=Math.hypot(p.x-k.x,p.y-k.y);if(d>175){moveEntity(k,(p.x-k.x)/(d||1)*0.75*dt/16.67,(p.y-k.y)/(d||1)*0.75*dt/16.67)}else if(d<105){moveEntity(k,-(p.x-k.x)/(d||1)*0.5*dt/16.67,-(p.y-k.y)/(d||1)*0.5*dt/16.67)}}
-  if(now-B.lastKing>=5000)kingAttack();
-  for(let i=B.projectiles.length-1;i>=0;i--){let s=B.projectiles[i];s.x+=s.vx*dt/16.67;s.y+=s.vy*dt/16.67;s.life+=dt;let target=s.owner==='player'?k:p;if(circleWalls(s.x,s.y,6)){B.projectiles.splice(i,1);continue}if(Math.hypot(s.x-target.x,s.y-target.y)<24){if(s.owner==='player'){k.hp=Math.max(0,k.hp-(s.melee?22:16));k.stagger=180;B.hitFlash=120;burst(k.x,k.y,'#fff');battleMsg('HIT! The King staggers. ⚔️')}else if(p.inv<=0){if(p.shield){battleMsg('SHIELD UP! The magical sword crashes away. 🛡️');p.inv=300}else{p.hp=Math.max(0,p.hp-(s.melee?18:14));p.inv=650;B.shake=180;B.hitFlash=90;burst(p.x,p.y,'#f55');battleMsg('WOLFY IS HIT! MOVE OR SHIELD!')}}B.projectiles.splice(i,1);continue}if(s.life>s.max){B.projectiles.splice(i,1)}}
-  B.shake=Math.max(0,(B.shake||0)-dt);B.hitFlash=Math.max(0,B.hitFlash-dt);if(k.hp<=0)return battleWin();if(p.hp<=0)return battleLose();updateBattleHud();}
-function battleMsg(t){const e=document.querySelector('#battleText');if(e)e.textContent=t}
-function updateBattleHud(){document.querySelector('#php').style.width=(B.player.hp/B.player.maxHp*100)+'%';document.querySelector('#pht').textContent=`${Math.ceil(B.player.hp)}/${B.player.maxHp} HP`;document.querySelector('#khp').style.width=(B.king.hp/260*100)+'%';document.querySelector('#kht').textContent=`${Math.ceil(B.king.hp)}/260 HP`}
-function burst(x,y,c){for(let i=0;i<10;i++){const a=Math.random()*Math.PI*2;B.particles.push({x,y,vx:Math.cos(a)*2,vy:Math.sin(a)*2,life:400,c})}}
-function drawBattle(){const ctx=B.ctx,w=B.w,h=B.h;ctx.clearRect(0,0,w,h);ctx.fillStyle='#090a10';ctx.fillRect(0,0,w,h);ctx.fillStyle='#17161b';ctx.fillRect(12,20,w-24,h-55);
-  // stone floor
-  ctx.strokeStyle='#27252d';ctx.lineWidth=1;for(let x=20;x<w;x+=42){ctx.beginPath();ctx.moveTo(x,22);ctx.lineTo(x,h-36);ctx.stroke()}for(let y=35;y<h-35;y+=42){ctx.beginPath();ctx.moveTo(12,y);ctx.lineTo(w-12,y);ctx.stroke()}
-  // castle walls
-  for(const r of B.walls){ctx.fillStyle='#39363d';ctx.fillRect(r.x,r.y,r.w,r.h);ctx.fillStyle='#4b4850';ctx.fillRect(r.x,r.y,r.w,7);ctx.fillStyle='#242229';ctx.fillRect(r.x+6,r.y+8,r.w-12,r.h-14)}
-  // line of sight indicator
-  if(!blockedByWall(B.player,B.king)){ctx.save();ctx.globalAlpha=.07;ctx.strokeStyle='#f33';ctx.lineWidth=20;ctx.beginPath();ctx.moveTo(B.player.x,B.player.y);ctx.lineTo(B.king.x,B.king.y);ctx.stroke();ctx.restore()}
-  drawKing(ctx,B.king);drawPrince(ctx,B.player);for(const s of B.projectiles)drawSword(ctx,s);for(let i=B.particles.length-1;i>=0;i--){const q=B.particles[i];q.x+=q.vx;q.y+=q.vy;q.life-=16;ctx.globalAlpha=Math.max(0,q.life/400);ctx.fillStyle=q.c;ctx.beginPath();ctx.arc(q.x,q.y,3,0,7);ctx.fill();if(q.life<=0)B.particles.splice(i,1)}ctx.globalAlpha=1;
-  if(B.hitFlash>0){ctx.fillStyle=`rgba(255,30,40,${B.hitFlash/500})`;ctx.fillRect(0,0,w,h)}
-}
-function drawPrince(ctx,p){ctx.save();ctx.translate(p.x,p.y);if(p.inv>0)ctx.globalAlpha=.55;ctx.fillStyle='#151922';ctx.beginPath();ctx.ellipse(0,13,18,8,0,0,7);ctx.fill();ctx.fillStyle='#e8c3a0';ctx.beginPath();ctx.arc(0,-12,10,0,7);ctx.fill();ctx.fillStyle='#e9edf5';ctx.beginPath();ctx.moveTo(-13,1);ctx.lineTo(13,1);ctx.lineTo(10,20);ctx.lineTo(-10,20);ctx.closePath();ctx.fill();ctx.fillStyle='#222a39';ctx.fillRect(-8,-24,16,5);ctx.fillStyle='#d9e6ff';ctx.fillRect(8,-3,28,4);ctx.restore()}
-function drawKing(ctx,k){ctx.save();ctx.translate(k.x,k.y);ctx.fillStyle='#0a0a0d';ctx.beginPath();ctx.ellipse(0,15,25,10,0,0,7);ctx.fill();ctx.fillStyle='#47262b';ctx.beginPath();ctx.arc(0,-10,15,0,7);ctx.fill();ctx.fillStyle='#15151b';ctx.beginPath();ctx.moveTo(-19,4);ctx.lineTo(19,4);ctx.lineTo(15,28);ctx.lineTo(-15,28);ctx.closePath();ctx.fill();ctx.fillStyle='#c52b35';ctx.beginPath();ctx.arc(-6,-12,2,0,7);ctx.arc(6,-12,2,0,7);ctx.fill();ctx.fillStyle='#d7b34a';ctx.beginPath();ctx.moveTo(-17,-22);ctx.lineTo(-9,-34);ctx.lineTo(0,-24);ctx.lineTo(9,-34);ctx.lineTo(17,-22);ctx.closePath();ctx.fill();ctx.fillStyle='#d9e6ff';ctx.fillRect(-39,-3,-28,4);ctx.restore()}
-function drawSword(ctx,s){ctx.save();ctx.translate(s.x,s.y);ctx.rotate(Math.atan2(s.vy,s.vx));ctx.shadowBlur=12;ctx.shadowColor=s.owner==='king'?'#d13b4b':'#b7d5ff';ctx.fillStyle=s.owner==='king'?'#ff5260':'#eaf4ff';ctx.fillRect(-18,-2,36,4);ctx.fillStyle='#b78a42';ctx.fillRect(-8,-5,5,10);ctx.restore()}
-function battleLoop(now){if(!B?.running)return;const dt=Math.min(40,now-B.last);B.last=now;updateBattle(dt,now);const ctx=B.ctx;ctx.save();if(B.shake>0)ctx.translate((Math.random()-.5)*8,(Math.random()-.5)*8);drawBattle();ctx.restore();requestAnimationFrame(battleLoop)}
-function battleWin(){if(!B?.running)return;B.running=false;B.cleanup?.();const arena=document.querySelector('#arena'),warn=document.querySelector('#battleWarn');if(warn)warn.textContent='THE MONSYETER KING FALLS';battleMsg('YESSS... YOU’RE INDEED THE SUPREME TORTURER, MANNN...');const death=document.querySelector('#death');if(death)death.innerHTML='<div class="deathKing">👺</div><div class="deathLine">“YOU DESERVE HERRR... LOL.”</div>';setTimeout(()=>reunion(),2300)}
-function battleLose(){if(!B?.running)return;B.running=false;B.cleanup?.();page(`<div class="hero">💔</div><h2>WOLFY FELL...</h2><p>The Princess is still waiting beyond the King.</p><button class="btn" onclick="boss()">⚔️ TRY THE BATTLE AGAIN</button>`)}
-function reunion(){page(`<div class="reunion"><div class="castleGlow">🏰</div><div class="reunionScene"><div class="person wolfy">🐺</div><div class="heartBurst">❤️</div><div class="person princess">👑</div></div><h1>YOU FOUND HER.</h1><div class="box"><h2>THE PRINCE & HIS PRINCESS</h2><p>After everything — the trials, the castle, the MONSYETER KING...</p><p><b>Wolfy finally reaches his Princess.</b></p><p class="hug">🐺❤️🤗❤️👑</p></div><button class="btn" onclick="code()">🔐 ENTER THE FINAL VAULT</button></div>`)}
 
-function code(){page(`<div class="hero">👑</div><h1>THE PRINCESS IS FREE</h1><div class="box"><p>The Evil King has fallen.</p><p>But the final castle vault remains locked.</p><p>🔐 <b>FINAL CODE</b></p><p class="small">Prototype code for now: <b>2205</b> — we can replace this with your real relationship clue.</p></div><input id="code" class="input" placeholder="ENTER CODE"><button class="btn" onclick="checkCode()">🔓 UNLOCK THE VAULT</button><p id="err" class="small"></p>`)}
-function checkCode(){if(document.querySelector('#code').value.trim()==='2205')gift();else document.querySelector('#err').textContent='Wrong code. The King may be gone, but he left one last trap. 👺'}
-function gift(){page(`<div class="hero">🎁</div><h1>QUEST COMPLETE</h1><div class="box"><p>👺 Evil King: DEFEATED</p><p>👑 Princess: RESCUED</p><p>🐺 Prince: VICTORIOUS</p><p>❤️ Kingdom: SAFE</p><h2>One final reward awaits...</h2></div><button class="btn" onclick="video()">🎬 OPEN THE BIRTHDAY SURPRISE</button>`)}
-function video(){page(`<div class="hero">🥹❤️</div><h1>YOU FOUND IT.</h1><div class="box"><h2>🎬 YOUR BIRTHDAY VIDEO</h2><p class="small">Replace this screen with your real video link/file when you're ready.</p></div><button class="btn" onclick="secret()">🕵️ FIND SECRET LEVEL</button>`)}
-function secret(){page(`<div class="hero">🕵️</div><h2>SECRET LEVEL</h2><p>You defeated a spider-powered MONSYETER KING just to reach your princess.</p><p><b>You're my favourite idiot. ❤️</b></p><button class="btn" onclick="start()">↻ PLAY AGAIN</button>`)}
-start();
+function startBattle(){
+  const c=document.querySelector('#battleCanvas');
+  B.canvas=c; B.ctx=c.getContext('2d');
+  buildMaze(); resizeBattle();
+  window.addEventListener('resize',resizeBattle);
+  bindBattleControls();
+  startBattleAudio();
+  updateBattleHud();
+  battleMsg('Find a good corridor. The King can only shoot when he can see Wolfy.');
+  B.last=performance.now(); B.lastKing=performance.now();
+  requestAnimationFrame(battleLoop);
+}
+
+function buildMaze(){
+  // Coordinates are based on the logical 680x520 arena and scaled to the phone viewport.
+  B.walls=[
+    {x:150,y:35,w:28,h:150},{x:150,y:250,w:28,h:120},
+    {x:275,y:100,w:130,h:28},{x:275,y:100,w:28,h:130},
+    {x:275,y:300,w:130,h:28},{x:377,y:300,w:28,h:145},
+    {x:490,y:45,w:28,h:145},{x:490,y:255,w:28,h:120},
+    {x:575,y:155,w:70,h:28},{x:70,y:405,w:145,h:28},
+    {x:510,y:405,w:110,h:28},{x:70,y:190,w:90,h:28}
+  ];
+}
+
+function resizeBattle(){
+  if(!B?.canvas)return;
+  const arena=document.querySelector('#arena'); if(!arena)return;
+  const r=arena.getBoundingClientRect();
+  const scale=Math.min(r.width/680,r.height/520);
+  B.scale=scale; B.ox=(r.width-680*scale)/2; B.oy=(r.height-520*scale)/2;
+  const d=window.devicePixelRatio||1;
+  B.canvas.width=Math.floor(r.width*d); B.canvas.height=Math.floor(r.height*d);
+  B.canvas.style.width=r.width+'px'; B.canvas.style.height=r.height+'px';
+  B.ctx.setTransform(d,0,0,d,0,0); B.viewW=r.width; B.viewH=r.height;
+}
+
+function bindBattleControls(){
+  const down=e=>{if(!B?.running)return; const k=e.key.toLowerCase();
+    if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright','shift',' '].includes(k))e.preventDefault();
+    if(k===' ')playerShoot(); else B.keys[k]=true;
+  };
+  const up=e=>{if(B)B.keys[e.key.toLowerCase()]=false};
+  window.addEventListener('keydown',down); window.addEventListener('keyup',up);
+  const buttons=document.querySelectorAll('[data-dir]');
+  buttons.forEach(btn=>{
+    const d=btn.dataset.dir;
+    const on=e=>{e.preventDefault();B.keys[d]=true};
+    const off=e=>{e.preventDefault();B.keys[d]=false};
+    btn.addEventListener('pointerdown',on); btn.addEventListener('pointerup',off); btn.addEventListener('pointercancel',off); btn.addEventListener('pointerleave',off);
+  });
+  const a=document.querySelector('#attackBtn');
+  a.addEventListener('pointerdown',e=>{e.preventDefault();playerShoot()});
+  const sh=document.querySelector('#shieldBtn');
+  const son=e=>{e.preventDefault();B.keys.shield=true}; const soff=e=>{e.preventDefault();B.keys.shield=false};
+  sh.addEventListener('pointerdown',son); sh.addEventListener('pointerup',soff); sh.addEventListener('pointercancel',soff); sh.addEventListener('pointerleave',soff);
+  B.cleanup=()=>{window.removeEventListener('keydown',down);window.removeEventListener('keyup',up);window.removeEventListener('resize',resizeBattle);stopBattleAudio()};
+}
+
+function worldPos(x,y){return {x:B.ox+x*B.scale,y:B.oy+y*B.scale}}
+function toWorld(x,y){return {x:(x-B.ox)/B.scale,y:(y-B.oy)/B.scale}}
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+function circleHitsWall(x,y,r=13){return B.walls.some(w=>x+r>w.x&&x-r<w.x+w.w&&y+r>w.y&&y-r<w.y+w.h)}
+function movePlayer(dx,dy){
+  const p=B.player; const speed=2.9;
+  if(dx||dy){const l=Math.hypot(dx,dy);dx/=l;dy/=l;if(Math.abs(dx)>Math.abs(dy))p.dir=dx>0?'right':'left';else p.dir=dy>0?'down':'up';}
+  const sx=dx*speed,sy=dy*speed;
+  const nx=Math.max(20,Math.min(660,p.x+sx)),ny=Math.max(20,Math.min(500,p.y+sy));
+  if(!circleHitsWall(nx,p.y,13))p.x=nx;
+  if(!circleHitsWall(p.x,ny,13))p.y=ny;
+}
+function moveKing(){
+  const k=B.king,p=B.player;
+  if(k.dead)return;
+  const d=dist(k,p); if(d<1)return;
+  let dx=(p.x-k.x)/d,dy=(p.y-k.y)/d;
+  // Keep the King simple and responsive: he follows, but walls constrain him.
+  const speed=d>150?0.78:0.42;
+  const nx=Math.max(20,Math.min(660,k.x+dx*speed)),ny=Math.max(20,Math.min(500,k.y+dy*speed));
+  if(!circleHitsWall(nx,k.y,15))k.x=nx;
+  if(!circleHitsWall(k.x,ny,15))k.y=ny;
+  if(Math.abs(dx)>Math.abs(dy))k.dir=dx>0?'right':'left';else k.dir=dy>0?'down':'up';
+}
+function lineBlocked(a,b){
+  for(const w of B.walls){if(segmentIntersectsRect(a.x,a.y,b.x,b.y,w))return true}
+  return false;
+}
+function segmentIntersectsRect(x1,y1,x2,y2,r){
+  // Liang-Barsky style clipping.
+  let t0=0,t1=1,dx=x2-x1,dy=y2-y1;
+  const p=[-dx,dx,-dy,dy],q=[x1-r.x,r.x+r.w-x1,y1-r.y,r.y+r.h-y1];
+  for(let i=0;i<4;i++){if(p[i]===0){if(q[i]<0)return false;continue}const t=q[i]/p[i];if(p[i]<0){if(t>t1)return false;if(t>t0)t0=t}else{if(t<t0)return false;if(t<t1)t1=t}}
+  return t0<1&&t1>0;
+}
+function playerShoot(){
+  if(!B?.running||B.win||B.player.cool>0)return;
+  const p=B.player,k=B.king;
+  if(!lineBlocked(p,k)){
+    const dx=k.x-p.x,dy=k.y-p.y,l=Math.hypot(dx,dy)||1;
+    B.shots.push({x:p.x,y:p.y,vx:dx/l*8,vy:dy/l*8,owner:'player',life:0});
+    p.cool=420; sfx('shoot'); battleMsg('✨ WOLFY FIRES HIS MAGIC SHOT!');
+  }else{battleMsg('🧱 WALL BLOCKS THE SHOT — move around the corner!')}
+}
+function kingShoot(){
+  if(!B.running||B.king.dead)return;
+  const p=B.player,k=B.king;
+  if(lineBlocked(k,p)){battleMsg('🧱 The castle wall protects Wolfy!'); B.lastKing=performance.now();return}
+  const d=dist(k,p),dx=(p.x-k.x)/(d||1),dy=(p.y-k.y)/(d||1);
+  B.shots.push({x:k.x,y:k.y,vx:dx*7,vy:dy*7,owner:'king',life:0});
+  k.cool=5000; B.lastKing=performance.now(); sfx('enemy');
+  const w=document.querySelector('#bossWarning');if(w){w.textContent='⚠️ INCOMING MAGIC!';w.classList.add('danger');setTimeout(()=>w.classList.remove('danger'),700)}
+  battleMsg('👺 THE KING LAUNCHES HIS MAGIC WEAPON!');
+}
+function updateBattle(dt,now){
+  if(!B.running)return;
+  const p=B.player,k=B.king;
+  let dx=0,dy=0;
+  if(B.keys.w||B.keys.arrowup||B.keys.up)dy--;
+  if(B.keys.s||B.keys.arrowdown||B.keys.down)dy++;
+  if(B.keys.a||B.keys.arrowleft||B.keys.left)dx--;
+  if(B.keys.d||B.keys.arrowright||B.keys.right)dx++;
+  movePlayer(dx,dy);
+  p.shield=!!B.keys.shield; p.cool=Math.max(0,p.cool-dt);p.inv=Math.max(0,p.inv-dt);k.flash=Math.max(0,k.flash-dt);
+  moveKing();
+  if(now-B.lastKing>=5000)kingShoot();
+  for(let i=B.shots.length-1;i>=0;i--){
+    const s=B.shots[i];s.x+=s.vx*dt/16.67;s.y+=s.vy*dt/16.67;s.life+=dt;
+    if(s.x<10||s.x>670||s.y<10||s.y>510||circleHitsWall(s.x,s.y,5)){B.shots.splice(i,1);continue}
+    const target=s.owner==='player'?k:p;
+    if(!target.dead&&dist(s,target)<20){
+      if(s.owner==='player'){
+        k.hp=Math.max(0,k.hp-18);k.flash=180;B.shake=90;burst(k.x,k.y,'#d9eaff',12);sfx('hit');battleMsg('💥 DIRECT HIT! KING HP -18');
+        if(k.hp<=0){B.shots.splice(i,1);battleWin();return}
+      }else{
+        if(p.inv<=0){
+          if(p.shield){p.inv=180;B.shake=45;burst(p.x,p.y,'#b9d8ff',8);sfx('block');battleMsg('🛡️ SHIELD BLOCK!');}
+          else{p.hp=Math.max(0,p.hp-14);p.inv=700;B.shake=120;burst(p.x,p.y,'#ff7180',10);sfx('hurt');battleMsg('💥 WOLFY HIT! SHIELD OR HIDE!');if(p.hp<=0){battleLose();return}}
+        }
+      }
+      B.shots.splice(i,1);
+    }
+  }
+  updateParticles(dt);B.shake=Math.max(0,B.shake-dt);updateBattleHud();
+}
+function updateBattleHud(){
+  const ph=document.querySelector('#php'),kh=document.querySelector('#khp');
+  if(ph)ph.style.width=Math.max(0,B.player.hp/B.player.maxHp*100)+'%';
+  if(kh)kh.style.width=Math.max(0,B.king.hp/B.king.maxHp*100)+'%';
+  const pt=document.querySelector('#pht'),kt=document.querySelector('#kht');
+  if(pt)pt.textContent=`${Math.ceil(B.player.hp)}/${B.player.maxHp} HP`;
+  if(kt)kt.textContent=`${Math.ceil(B.king.hp)}/${B.king.maxHp} HP`;
+}
+function battleMsg(t){const e=document.querySelector('#battleText');if(e)e.textContent=t}
+function burst(x,y,c,n=8){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=1+Math.random()*2.5;B.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:350,max:350,c})}}
+function updateParticles(dt){for(let i=B.particles.length-1;i>=0;i--){const q=B.particles[i];q.x+=q.vx*dt/16.67;q.y+=q.vy*dt/16.67;q.life-=dt;if(q.life<=0)B.particles.splice(i,1)}}
+
+function drawBattle(){
+  const ctx=B.ctx;ctx.clearRect(0,0,B.viewW,B.viewH);ctx.save();ctx.translate(B.ox,B.oy);ctx.scale(B.scale,B.scale);
+  ctx.fillStyle='#070910';ctx.fillRect(0,0,680,520);
+  ctx.fillStyle='#151820';ctx.fillRect(8,8,664,504);
+  // top-down stone tiles
+  ctx.strokeStyle='#20252d';ctx.lineWidth=1;
+  for(let x=12;x<672;x+=34){ctx.beginPath();ctx.moveTo(x,10);ctx.lineTo(x,510);ctx.stroke()}
+  for(let y=12;y<512;y+=34){ctx.beginPath();ctx.moveTo(10,y);ctx.lineTo(670,y);ctx.stroke()}
+  // maze walls
+  for(const w of B.walls){
+    ctx.fillStyle='#343943';ctx.fillRect(w.x,w.y,w.w,w.h);
+    ctx.fillStyle='#515866';ctx.fillRect(w.x,w.y,w.w,6);
+    ctx.fillStyle='#242831';ctx.fillRect(w.x+4,w.y+8,Math.max(1,w.w-8),Math.max(1,w.h-12));
+  }
+  // subtle line of sight, only when visible
+  if(!lineBlocked(B.player,B.king)){ctx.strokeStyle='rgba(255,70,80,.12)';ctx.lineWidth=12;ctx.beginPath();ctx.moveTo(B.player.x,B.player.y);ctx.lineTo(B.king.x,B.king.y);ctx.stroke()}
+  drawPrinceTop(ctx,B.player);drawKingTop(ctx,B.king);
+  for(const s of B.shots)drawMagicShot(ctx,s);
+  for(const q of B.particles){ctx.globalAlpha=Math.max(0,q.life/q.max);ctx.fillStyle=q.c;ctx.beginPath();ctx.arc(q.x,q.y,3,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;
+  if(B.shake>0){/* shake is applied by the outer loop */}
+  ctx.restore();
+}
+function drawPrinceTop(ctx,p){
+  ctx.save();ctx.translate(p.x,p.y);if(p.inv>0)ctx.globalAlpha=.55;
+  // Knight shadow, boots, armor, cape, helmet and plume.
+  ctx.fillStyle='rgba(0,0,0,.45)';ctx.beginPath();ctx.ellipse(0,13,19,8,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#5b202d';ctx.beginPath();ctx.moveTo(-14,3);ctx.lineTo(14,3);ctx.lineTo(18,19);ctx.lineTo(-18,19);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#cfd7e2';ctx.beginPath();ctx.arc(0,-3,15,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#747e8d';ctx.fillRect(-12,-10,24,8);ctx.fillStyle='#1a1e26';ctx.fillRect(-10,-7,20,5);
+  ctx.fillStyle='#d9b14b';ctx.beginPath();ctx.moveTo(-11,-16);ctx.lineTo(-5,-26);ctx.lineTo(0,-17);ctx.lineTo(7,-27);ctx.lineTo(12,-16);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#e5edf8';ctx.fillRect(-4,8,8,9);
+  // magic blaster / sword-gun
+  ctx.fillStyle='#bcdcff';ctx.shadowBlur=9;ctx.shadowColor='#9cc8ff';ctx.fillRect(10,-3,25,6);ctx.fillStyle='#8b6b39';ctx.fillRect(13,3,6,9);ctx.shadowBlur=0;
+  ctx.restore();
+}
+function drawKingTop(ctx,k){
+  ctx.save();ctx.translate(k.x,k.y);if(k.dead)ctx.globalAlpha=.5;ctx.globalAlpha*=k.flash>0?0.45:1;
+  ctx.fillStyle='rgba(0,0,0,.5)';ctx.beginPath();ctx.ellipse(0,16,25,10,0,0,Math.PI*2);ctx.fill();
+  // monstrous armor/body
+  ctx.fillStyle='#17171d';ctx.beginPath();ctx.moveTo(-21,3);ctx.lineTo(21,3);ctx.lineTo(17,30);ctx.lineTo(-17,30);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#54242c';ctx.beginPath();ctx.arc(0,-8,17,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#d83c4d';ctx.beginPath();ctx.arc(-7,-10,3,0,Math.PI*2);ctx.arc(7,-10,3,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#c49b3d';ctx.beginPath();ctx.moveTo(-19,-21);ctx.lineTo(-11,-34);ctx.lineTo(-3,-23);ctx.lineTo(4,-35);ctx.lineTo(11,-23);ctx.lineTo(19,-21);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#ff5260';ctx.shadowBlur=12;ctx.shadowColor='#ff3345';ctx.fillRect(-39,-3,-26,6);ctx.fillStyle='#9b7335';ctx.fillRect(-17,-7,6,14);ctx.shadowBlur=0;
+  ctx.restore();
+}
+function drawMagicShot(ctx,s){
+  ctx.save();ctx.translate(s.x,s.y);ctx.rotate(Math.atan2(s.vy,s.vx));
+  ctx.shadowBlur=16;ctx.shadowColor=s.owner==='king'?'#ff3348':'#9fd1ff';ctx.fillStyle=s.owner==='king'?'#ff5161':'#e7f4ff';
+  ctx.fillRect(-14,-3,28,6);ctx.fillStyle=s.owner==='king'?'#7b2530':'#7296c0';ctx.fillRect(-4,-7,8,14);ctx.restore();
+}
+function battleLoop(now){
+  if(!B?.running)return;
+  const dt=Math.min(34,now-B.last);B.last=now;updateBattle(dt,now);
+  B.ctx.save();if(B.shake>0)B.ctx.translate((Math.random()-.5)*5,(Math.random()-.5)*5);drawBattle();B.ctx.restore();
+  requestAnimationFrame(battleLoop);
+}
+function battleWin(){
+  if(!B?.running||B.win)return;B.win=true;B.running=false;B.cleanup?.();
+  const death=document.querySelector('#death');
+  if(death)death.innerHTML='<div class="deathKingBig">👺</div><div class="deathLine">“YES... UR INDEED THE SUPREME TORTURER MANNN...”</div><div class="deathLine">“U DESERVE HERRR... LOL.”</div>';
+  battleMsg('THE MONSYETER KING FALLS...');sfx('win');
+  setTimeout(reunion,2600);
+}
+function battleLose(){
+  if(!B?.running)return;B.running=false;B.cleanup?.();
+  page(`<div class="hero">💔</div><h2>WOLFY FELL...</h2><p>The Princess is still waiting inside the castle.</p><button class="btn" onclick="boss()">⚔️ TRY AGAIN</button>`);
+}
+function reunion(){
+  page(`<div class="reunion"><div class="castleGlow">🏰</div><div class="reunionScene"><div class="person wolfy">🐺</div><div class="heartBurst">❤️</div><div class="person princess">👑</div></div><h1>YOU FOUND HER.</h1><div class="box"><h2>THE PRINCE & HIS PRINCESS</h2><p>The Evil King is gone.</p><p><b>Wolfy finally reaches his Princess.</b></p><p class="hug">🐺❤️🤗❤️👑</p><p>And after everything he went through...</p><p><b>he finally gets the hug he came for. 💕</b></p></div><button class="btn" onclick="birthdayEnd()">💕 ONE LAST THING...</button></div>`);
+}
+function birthdayEnd(){
+  page(`<div class="hero">👑💕</div><h1>GAME OVER</h1><div class="box"><h2>THERE'S A BIRTHDAY SURPRISE VIDEO FOR U LOVEE 💕</h2><p>You defeated the MONSYETER KING, saved your Princess, and completed the quest.</p><p class="small">Your Princess has something waiting for you outside the game. 🥹❤️</p></div><p class="small">THE END · WOLFY & HIS PRINCESS</p>`);
+}
+
+/* Tiny synthesized atmosphere — starts only after the user enters the battle, so mobile browsers allow it. */
+function startBattleAudio(){
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+    const ac=new AC();B.audio=ac;if(ac.state==='suspended')ac.resume();
+    const master=ac.createGain();master.gain.value=.035;master.connect(ac.destination);
+    const osc=ac.createOscillator(),gain=ac.createGain();osc.type='sine';osc.frequency.value=55;gain.gain.value=.35;osc.connect(gain).connect(master);osc.start();B.audioDrone={osc,gain,master};
+  }catch(e){B.audio=null}
+}
+function stopBattleAudio(){if(!B?.audio)return;try{B.audio.close()}catch(e){}}
+function sfx(type){
+  const ac=B?.audio;if(!ac)return;try{
+    const o=ac.createOscillator(),g=ac.createGain();o.connect(g).connect(B.audioDrone.master);
+    const now=ac.currentTime;let f=type==='shoot'?480:type==='hit'?120:type==='hurt'?75:type==='block'?250:type==='enemy'?180:70;
+    o.type=type==='hurt'||type==='enemy'?'sawtooth':'triangle';o.frequency.setValueAtTime(f,now);o.frequency.exponentialRampToValueAtTime(Math.max(35,f*.45),now+.12);g.gain.setValueAtTime(.22,now);g.gain.exponentialRampToValueAtTime(.001,now+.14);o.start(now);o.stop(now+.15);
+  }catch(e){}
+}
