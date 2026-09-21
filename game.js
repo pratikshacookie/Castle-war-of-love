@@ -47,7 +47,7 @@ function boss(){
   {x:350,y:250,hp:monsterHp,maxHp:monsterHp,shootCd:2.0,flash:0,dead:false},
   {x:555,y:335,hp:monsterHp,maxHp:monsterHp,shootCd:1.5,flash:0,dead:false}
  ];
- B={running:true,win:false,keys:{},shots:[],particles:[],last:performance.now(),player:{x:55,y:70,hp:maxHp,maxHp,dir:'right',shootCd:0,shield:false,inv:0},monsters,king:{x:610,y:350,hp:235+S.score*5,maxHp:235+S.score*5,dir:'left',shootCd:2.5,flash:0,dead:false,phase:1},cleanup:null};
+ B={running:true,win:false,keys:{},shots:[],particles:[],last:performance.now(),shake:0,player:{x:55,y:70,hp:maxHp,maxHp,dir:'right',shootCd:0,shield:false,inv:0},monsters,king:{x:610,y:350,hp:235+S.score*5,maxHp:235+S.score*5,dir:'left',shootCd:2.5,flash:0,dead:false,phase:1},cleanup:null};
  page(`<p class="small">THE FINAL TRIAL</p><h2>⚔️ WOLFY VS THE MONSYETER KING</h2><div class="battleHud"><div><b>🤴 WOLFY · KNIGHT</b><div class="bar"><i id="php"></i></div><span id="pht"></span></div><div><b>👺 MONSYETER KING</b><div class="bar enemy"><i id="khp"></i></div><span id="kht"></span><div class="small" id="mht">👹 GUARDS: 5</div></div></div><div id="arena" class="mazeArena"><canvas id="battleCanvas"></canvas><div class="bossWarning" id="bossWarning">⚠️ FIVE MONSTER GUARDS ARE HUNTING YOU</div><div class="battleText" id="battleText">Take down the guards, then finish the cruel King. Walls block magic shots.</div><div class="deathOverlay" id="death"></div></div><div class="battleControls"><div class="dpad"><button data-dir="up">▲</button><div><button data-dir="left">◀</button><button data-dir="down">▼</button><button data-dir="right">▶</button></div></div><div class="combatBtns"><button class="combat attackBtn" id="attackBtn">✨ SHOOT</button><button class="combat shieldBtn" id="shieldBtn">🛡️ SHIELD</button></div></div><p class="hint">Phone: hold a direction to move. Tap SHOOT to fire at the nearest visible enemy. Hold SHIELD. Desktop: WASD/arrows · Space · Shift.</p>`);
  initBattle();
 }
@@ -71,20 +71,39 @@ function livingEnemies(){return [...B.monsters.filter(m=>!m.dead),B.king].filter
 function shoot(){if(!B?.running||B.player.shootCd>0)return;const p=B.player;const enemies=livingEnemies().filter(e=>clearLine(p,e));let target=enemies.sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0];let dx,dy;if(target){dx=target.x-p.x;dy=target.y-p.y}else{if(p.dir==='left')dx=-1,dy=0;else if(p.dir==='right')dx=1,dy=0;else if(p.dir==='up')dx=0,dy=-1;else dx=0,dy=1}const l=Math.hypot(dx,dy)||1;B.shots.push({x:p.x,y:p.y,vx:dx/l*WORLD.shotSpeed,vy:dy/l*WORLD.shotSpeed,owner:'p',life:0});p.shootCd=.28;burst(p.x,p.y,'#d9efff',5);msg(target?`✨ MAGIC SHOT — ${target===B.king?'KING':'MONSTER'} HIT!`:'✨ MAGIC SHOT — GET AROUND THE WALL!')}
 function enemyShoot(e,isKing=false){const p=B.player;if(!clearLine(e,p))return;const dx=p.x-e.x,dy=p.y-e.y,l=Math.hypot(dx,dy)||1;B.shots.push({x:e.x,y:e.y,vx:dx/l*WORLD.shotSpeed*(isKing?.9:.78),vy:dy/l*WORLD.shotSpeed*(isKing?.9:.78),owner:'e',life:0});e.shootCd=isKing?(e.phase===2?1.45:2.2):(1.15+Math.random()*.55);burst(e.x,e.y,isKing?'#ff5263':'#ffb05c',4);if(isKing){const w=document.querySelector('#bossWarning');if(w){w.textContent='⚠️ KING + MONSTERS ATTACKING — HIDE!';w.classList.add('danger');setTimeout(()=>w.classList.remove('danger'),700)}msg('👺 THE KING FIRES — THE MONSTERS JOIN IN!')}else msg('👹 A MONSTER FIRES — KEEP MOVING!')}
 function damageEnemy(target,amount,label){target.hp=Math.max(0,target.hp-amount);target.flash=.15;burst(target.x,target.y,'#ffffff',10);msg(`💥 ${label} HIT! HP −${amount}`);if(target.hp<=0){target.dead=true;burst(target.x,target.y,'#ffcf72',20);}}
-function update(dt){const p=B.player,k=B.king;if(!B.running)return;let dx=0,dy=0;if(B.keys.w||B.keys.arrowup||B.keys.up)dy--;if(B.keys.s||B.keys.arrowdown||B.keys.down)dy++;if(B.keys.a||B.keys.arrowleft||B.keys.left)dx--;if(B.keys.d||B.keys.arrowright||B.keys.right)dx++;if(dx||dy){if(Math.abs(dx)>Math.abs(dy))p.dir=dx>0?'right':'left';else p.dir=dy>0?'down':'up'}moveCircle(p,dx,dy,WORLD.playerSpeed,dt,WORLD.r);p.shield=!!B.keys.shield;p.shootCd=Math.max(0,p.shootCd-dt);p.inv=Math.max(0,p.inv-dt);k.flash=Math.max(0,k.flash-dt);
+function update(dt){const p=B.player,k=B.king;if(!B.running)return;B.shake=Math.max(0,B.shake-dt);let dx=0,dy=0;if(B.keys.w||B.keys.arrowup||B.keys.up)dy--;if(B.keys.s||B.keys.arrowdown||B.keys.down)dy++;if(B.keys.a||B.keys.arrowleft||B.keys.left)dx--;if(B.keys.d||B.keys.arrowright||B.keys.right)dx++;if(dx||dy){if(Math.abs(dx)>Math.abs(dy))p.dir=dx>0?'right':'left';else p.dir=dy>0?'down':'up'}moveCircle(p,dx,dy,WORLD.playerSpeed,dt,WORLD.r);p.shield=!!B.keys.shield;p.shootCd=Math.max(0,p.shootCd-dt);p.inv=Math.max(0,p.inv-dt);k.flash=Math.max(0,k.flash-dt);
  if(!k.dead){if(k.hp<k.maxHp*.35)k.phase=2;let kdx=0,kdy=0;const d=Math.hypot(p.x-k.x,p.y-k.y);if(d>185){kdx=(p.x-k.x)/(d||1);kdy=(p.y-k.y)/(d||1)}else if(d<125){kdx=(k.x-p.x)/(d||1);kdy=(k.y-p.y)/(d||1)}moveCircle(k,kdx,kdy,k.phase===2?WORLD.kingSpeed*1.35:WORLD.kingSpeed,dt,WORLD.r+5);if(Math.abs(kdx)>Math.abs(kdy))k.dir=kdx>0?'right':'left';else if(kdy)k.dir=kdy>0?'down':'up';k.shootCd=Math.max(0,k.shootCd-dt);if(k.shootCd<=0&&clearLine(k,p))enemyShoot(k,true)}
  for(const m of B.monsters){if(m.dead)continue;m.flash=Math.max(0,m.flash-dt);m.shootCd=Math.max(0,m.shootCd-dt);const d=Math.hypot(p.x-m.x,p.y-m.y);let mdx=0,mdy=0;if(d>150){mdx=(p.x-m.x)/(d||1);mdy=(p.y-m.y)/(d||1)}else if(d<85){mdx=(m.x-p.x)/(d||1);mdy=(m.y-p.y)/(d||1)}else{mdx=Math.sin((performance.now()/700)+m.x)*.35;mdy=Math.cos((performance.now()/900)+m.y)*.35}moveCircle(m,mdx,mdy,WORLD.monsterSpeed,dt,WORLD.r+2);if(m.shootCd<=0&&clearLine(m,p))enemyShoot(m,false)}
- for(let i=B.shots.length-1;i>=0;i--){const s=B.shots[i];const ox=s.x,oy=s.y;s.x+=s.vx*dt;s.y+=s.vy*dt;s.life+=dt;if(s.x<0||s.x>WORLD.w||s.y<0||s.y>WORLD.h||WALLS.some(w=>segmentRect(ox,oy,s.x,s.y,w))){B.shots.splice(i,1);continue}if(s.owner==='p'){const targets=livingEnemies();let hit=targets.find(t=>Math.hypot(s.x-t.x,s.y-t.y)<WORLD.r+10);if(hit){B.shots.splice(i,1);if(hit===k){damageEnemy(k,24,'KING');if(k.hp<=0){winBattle();return}}else{damageEnemy(hit,34,'MONSTER');if(hit.hp<=0)msg('💀 MONSTER GUARD DEFEATED!')}}}else{if(Math.hypot(s.x-p.x,s.y-p.y)<WORLD.r+8){B.shots.splice(i,1);if(p.inv<=0){if(p.shield){p.inv=.2;burst(p.x,p.y,'#9ed5ff',10);msg('🛡️ BLOCKED!')}else{p.hp=Math.max(0,p.hp-(s.owner==='e'?(k.phase===2?18:13):13));p.inv=.55;burst(p.x,p.y,'#ff6878',10);msg(`💥 WOLFY HIT! ${k.phase===2?'THE KING IS ENRAGED — ':''}HIDE OR SHIELD!`);if(p.hp<=0){loseBattle();return}}}}}}
+ for(let i=B.shots.length-1;i>=0;i--){const s=B.shots[i];const ox=s.x,oy=s.y;s.x+=s.vx*dt;s.y+=s.vy*dt;s.life+=dt;if(s.x<0||s.x>WORLD.w||s.y<0||s.y>WORLD.h||WALLS.some(w=>segmentRect(ox,oy,s.x,s.y,w))){B.shots.splice(i,1);continue}if(s.owner==='p'){const targets=livingEnemies();let hit=targets.find(t=>Math.hypot(s.x-t.x,s.y-t.y)<WORLD.r+10);if(hit){B.shots.splice(i,1);if(hit===k){damageEnemy(k,24,'KING');if(k.hp<=0){winBattle();return}}else{damageEnemy(hit,34,'MONSTER');if(hit.hp<=0)msg('💀 MONSTER GUARD DEFEATED!')}}}else{if(Math.hypot(s.x-p.x,s.y-p.y)<WORLD.r+8){B.shots.splice(i,1);if(p.inv<=0){if(p.shield){p.inv=.2;B.shake=.12;burst(p.x,p.y,'#9ed5ff',10);msg('🛡️ BLOCKED!')}else{B.shake=.18;p.hp=Math.max(0,p.hp-(s.owner==='e'?(k.phase===2?18:13):13));p.inv=.55;burst(p.x,p.y,'#ff6878',10);msg(`💥 WOLFY HIT! ${k.phase===2?'THE KING IS ENRAGED — ':''}HIDE OR SHIELD!`);if(p.hp<=0){loseBattle();return}}}}}}
  if(B.monsters.every(m=>m.dead)&&!k.dead)msg('🔥 ALL MONSTERS DOWN — NOW FACE THE CRUEL KING!');updateParticles(dt);updateHud()}
 function updateParticles(dt){for(let i=B.particles.length-1;i>=0;i--){const q=B.particles[i];q.x+=q.vx*dt;q.y+=q.vy*dt;q.life-=dt;if(q.life<=0)B.particles.splice(i,1)}}
 function burst(x,y,c,n){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=40+Math.random()*100;B.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.35,c})}}
 function msg(t){const e=document.querySelector('#battleText');if(e)e.textContent=t}
 function updateHud(){if(!B)return;const a=document.querySelector('#php'),b=document.querySelector('#khp');if(a)a.style.width=`${B.player.hp/B.player.maxHp*100}%`;if(b)b.style.width=`${B.king.hp/B.king.maxHp*100}%`;const c=document.querySelector('#pht'),d=document.querySelector('#kht');if(c)c.textContent=`${Math.ceil(B.player.hp)}/${B.player.maxHp} HP`;if(d)d.textContent=`${Math.ceil(B.king.hp)}/${B.king.maxHp} HP`;const m=document.querySelector('#mht');if(m){const left=B.monsters.filter(x=>!x.dead).length;m.textContent=`👹 GUARDS: ${left}`}}
 function loop(now){if(!B?.running)return;const dt=Math.min(.033,(now-B.last)/1000||0);B.last=now;update(dt);draw();B.raf=requestAnimationFrame(loop)}
-function draw(){const ctx=B.ctx;ctx.setTransform(devicePixelRatio||1,0,0,devicePixelRatio||1,0,0);ctx.clearRect(0,0,B.viewW,B.viewH);ctx.save();ctx.translate(B.ox,B.oy);ctx.scale(B.scale,B.scale);ctx.fillStyle='#090b11';ctx.fillRect(0,0,WORLD.w,WORLD.h);for(let x=0;x<WORLD.w;x+=34)for(let y=0;y<WORLD.h;y+=34){ctx.fillStyle=(x/34+y/34)%2?'#151923':'#10141c';ctx.fillRect(x,y,33,33)}drawCastleDetails(ctx);for(const w of WALLS){ctx.fillStyle='#353b46';ctx.fillRect(w.x,w.y,w.w,w.h);ctx.fillStyle='#626b78';ctx.fillRect(w.x,w.y,w.w,4);ctx.fillStyle='#252a33';ctx.fillRect(w.x+3,w.y+8,5,Math.max(0,w.h-11))}for(const s of B.shots)drawShot(ctx,s);drawKnight(ctx,B.player);for(const m of B.monsters)if(!m.dead)drawMonster(ctx,m);drawKing(ctx,B.king);for(const q of B.particles){ctx.globalAlpha=Math.max(0,q.life/.35);ctx.fillStyle=q.c;ctx.beginPath();ctx.arc(q.x,q.y,3,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;ctx.restore()}
+function draw(){
+ const ctx=B.ctx;ctx.setTransform(devicePixelRatio||1,0,0,devicePixelRatio||1,0,0);ctx.clearRect(0,0,B.viewW,B.viewH);
+ const sx=(Math.random()-.5)*B.shake*38, sy=(Math.random()-.5)*B.shake*38;
+ ctx.save();ctx.translate(B.ox+sx,B.oy+sy);ctx.scale(B.scale,B.scale);
+ ctx.fillStyle='#05050a';ctx.fillRect(0,0,WORLD.w,WORLD.h);
+ for(let x=0;x<WORLD.w;x+=34)for(let y=0;y<WORLD.h;y+=34){ctx.fillStyle=(x/34+y/34)%2?'#0d1017':'#090c12';ctx.fillRect(x,y,33,33)}
+ drawCastleDetails(ctx);
+ // Ominous floor cracks
+ ctx.save();ctx.globalAlpha=.22;ctx.strokeStyle='#6b2634';ctx.lineWidth=2;
+ for(const c of [[70,120,120,145],[155,390,205,365],[370,160,405,185],[525,285,580,265],[285,430,320,405]]){ctx.beginPath();ctx.moveTo(c[0],c[1]);ctx.lineTo(c[2],c[3]);ctx.stroke()}
+ ctx.restore();
+ for(const w of WALLS){ctx.fillStyle='#252a33';ctx.fillRect(w.x,w.y,w.w,w.h);ctx.fillStyle='#505865';ctx.fillRect(w.x,w.y,w.w,4);ctx.fillStyle='#171b22';ctx.fillRect(w.x+3,w.y+8,5,Math.max(0,w.h-11))}
+ for(const s of B.shots)drawShot(ctx,s);drawKnight(ctx,B.player);for(const m of B.monsters)if(!m.dead)drawMonster(ctx,m);drawKing(ctx,B.king);
+ for(const q of B.particles){ctx.globalAlpha=Math.max(0,q.life/.35);ctx.fillStyle=q.c;ctx.beginPath();ctx.arc(q.x,q.y,3,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;ctx.restore();
+ // Vignette and heartbeat-like darkness, purely visual
+ const pulse=(Math.sin(performance.now()/240)+1)/2;
+ const g=ctx.createRadialGradient(B.viewW/2,B.viewH/2,Math.min(B.viewW,B.viewH)*.18,B.viewW/2,B.viewH/2,Math.max(B.viewW,B.viewH)*.72);
+ g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(.72,`rgba(0,0,0,${.38+.10*pulse})`);g.addColorStop(1,`rgba(0,0,0,${.78+.08*pulse})`);
+ ctx.fillStyle=g;ctx.fillRect(0,0,B.viewW,B.viewH);
+}
 function drawCastleDetails(ctx){
  ctx.save();
- ctx.globalAlpha=.72;
+ ctx.globalAlpha=.58;
  for(const t of [[38,42],[390,55],[650,80],[165,235],[390,235],[650,250],[245,450],[400,455],[650,450]]){
   ctx.fillStyle='#ffbf62';ctx.shadowColor='#ff8a3d';ctx.shadowBlur=18;ctx.beginPath();ctx.arc(t[0],t[1],5,0,Math.PI*2);ctx.fill();
   ctx.fillStyle='#7a4930';ctx.shadowBlur=0;ctx.fillRect(t[0]-2,t[1]+5,4,9);
@@ -106,10 +125,12 @@ let audioCtx=null,audioNodes=[];
 function startBattleAudio(){
  try{
   audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-  const master=audioCtx.createGain();master.gain.value=.045;master.connect(audioCtx.destination);
-  const o=audioCtx.createOscillator();o.type='sine';o.frequency.value=55;const og=audioCtx.createGain();og.gain.value=.5;o.connect(og);og.connect(master);o.start();
-  const lfo=audioCtx.createOscillator(),lg=audioCtx.createGain();lfo.frequency.value=.16;lg.gain.value=22;lfo.connect(lg);lg.connect(o.frequency);lfo.start();
-  audioNodes=[o,lfo,master,og,lg];
+  const master=audioCtx.createGain();master.gain.value=.035;master.connect(audioCtx.destination);
+  const o=audioCtx.createOscillator(),og=audioCtx.createGain();o.type='sine';o.frequency.value=48;og.gain.value=.6;o.connect(og);og.connect(master);o.start();
+  const lfo=audioCtx.createOscillator(),lg=audioCtx.createGain();lfo.frequency.value=.13;lg.gain.value=16;lfo.connect(lg);lg.connect(o.frequency);lfo.start();
+  const o2=audioCtx.createOscillator(),g2=audioCtx.createGain();o2.type='triangle';o2.frequency.value=82;g2.gain.value=.08;o2.connect(g2);g2.connect(master);o2.start();
+  const lfo2=audioCtx.createOscillator(),lg2=audioCtx.createGain();lfo2.frequency.value=.55;lg2.gain.value=.035;lfo2.connect(lg2);lg2.connect(g2.gain);lfo2.start();
+  audioNodes=[o,lfo,o2,lfo2,master,og,lg,g2,lg2];
  }catch(e){}
 }
 function stopBattleAudio(){if(!audioCtx)return;try{audioNodes.forEach(n=>{try{n.stop?.()}catch(e){}});audioCtx.close()}catch(e){}audioCtx=null;audioNodes=[]}
