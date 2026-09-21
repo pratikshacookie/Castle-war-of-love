@@ -2,18 +2,18 @@ const g=document.querySelector('#game');
 const S={q:0,score:0,sit:0,first:null,pairs:0,lock:false};
 const Q=[
 ['On which date prince and princess married each other?',['11 April','27 april','22 may','18 june'],2],
-['What was prince first impress of princess',["She's smart","She's pretty","She's lazy","She's a boy"],3],
+['What was prince first impression of princess',["She's smart","She's pretty","She's lazy","She's a boy"],3],
 ['What would ur wife say if she is shy?',['Moon is beautiful','Meaw','Atoms r kewl/hawt','All of the above'],3],
 ['What is most important for a relationship?',['Looks','Chicks','Lust','Loyality'],3],
 ['What is princess dream?',['Go to a beach','Pet a cat','Eat ice-cream','Shower with prince husband (better dessert 😏)'],3],
 ['Prince dream home MUST have?',['Theatre room','Sauna room','Hall','Soundproof big bedroom with attached shower room 😏'],3],
-["What's something that will make her upset?",['not saying I love u back','Kissing back','Hugging back','All of the above'],3],
+["What's something that will make her upset?",['not saying I love u back','not Kissing back','not Hugging back','All of the above'],3],
 ['Which song is prince least favourite?',['Skyfall','Most songs by c418','Playful massacre song for wembu','Rickroll'],3],
 ['His is famous called as what by basement kids?',['Powerless guy','Pookie','Wolfy','Supreme torturer'],3],
 ['What is heroz most important Mission?',['Save his wife from "monsyeter"','Pet a wolf','Spend time with Princess\'s sister 🤨','Kill spiders'],0]
 ];
 const situations=[
-["If a clone of me appeared that was 20% more pretty and cooked better 5 star meals, but clearly lacked my chaotic energy humour, how long before you realized it wasn't the real me?",['Within seconds honey, c\'mon ilysm','Might take me a while to differentiate, till then I\'ll spend time w that shawty😍'],0],
+["If a clone of me appeared that was pro gamer and cooked better 5 star meals, but clearly lacked my chaotic energy humour, how long before you realized it wasn't the real me?",['Within seconds honey, c\'mon ilysm','Might take me a while to differentiate, till then I\'ll spend time w that shawty😍'],0],
 ["If I suddenly gained the ability to speak fluently to pigeons and decided to assemble a local bird spy team irl to do my detective work, would you join my bird empire ?",['No that\'s boring','Ofc love 😘, we\'ll be better than cbi'],1],
 ["If I got turned into a worm, would you keep me in a nice little box with fancy dirt, or would you take me everywhere in your pocket?",["You'll always be with me sweetheart",'No ew you always be covered in mud , i would love u 😒😒'],0]
 ];
