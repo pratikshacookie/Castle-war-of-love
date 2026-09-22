@@ -15,7 +15,7 @@ const Q=[
 const situations=[
 ["If a clone of me appeared that was pro gamer and cooked better 5 star meals, but clearly lacked my chaotic energy humour, how long before you realized it wasn't the real me?",['Within seconds honey, c\'mon ilysm','Might take me a while to differentiate, till then I\'ll spend time w that shawty😍'],0],
 ["If I suddenly gained the ability to speak fluently to pigeons and decided to assemble a local bird spy team irl to do my detective work, would you join my bird empire ?",['No that\'s boring','Ofc love 😘, we\'ll be better than cbi'],1],
-["If I got turned into a worm, would you keep me in a nice little box with fancy dirt, or would you take me everywhere in your pocket?",["You'll always be with me sweetheart",'No ew you always be covered in mud , i would love u 😒😒'],0]
+["If I got turned into a worm, would you keep me in a nice little box with fancy dirt, or would you take me everywhere in your pocket?",["You'll always be with me sweetheart",'No ewww, be covered in mud idc, i wont love a worm😒😒'],0]
 ];
 function page(x){g.innerHTML=`<div class="wrap">${x}</div>`}
 function start(){page(`<div class="hero">🤴💕👸</div><h1>THE BOYFRIEND<br>BIRTHDAY QUEST</h1><p>Your Princess has been locked away by the Evil King.</p><p class="small">One Prince. One kingdom. One extremely suspicious amount of spiders.</p><button class="btn" onclick="trial1()">⚔️ ENTER THE KINGDOM</button>`)}
